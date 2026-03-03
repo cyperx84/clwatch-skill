@@ -1,0 +1,11 @@
+{
+  "watchHarnesses": ["claude-code", "aider", "cursor", "openclaw"],
+  "configPaths": [
+    "~/.claude/settings.json",
+    "~/projects/*/CLAUDE.md",
+    "~/projects/*/.cursorrules",
+    "~/projects/*/.aider.conf.yml"
+  ],
+  "alertLevel": "warning",
+  "checkFrequency": "daily"
+}
