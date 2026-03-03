@@ -1,5 +1,5 @@
 ---
-name: cliwatch
+name: clwatch
 description: "Monitor AI coding tool changelogs and alert when updates affect your configs. Checks for breaking changes, deprecated features, and recommended actions across all tracked agent harnesses."
 metadata:
   openclaw:
@@ -8,7 +8,7 @@ metadata:
       bins: ["node", "jq"]
 ---
 
-# cliwatch — Changelog Monitor Skill
+# clwatch — Changelog Monitor Skill
 
 ## Overview
 
@@ -30,7 +30,7 @@ The skill runs as a cron job (configurable frequency). On each run it:
 
 Set these in your OpenClaw agent workspace:
 
-**cliwatch-config.json:**
+**clwatch-config.json:**
 ```json
 {
   "watchHarnesses": ["claude-code", "aider", "cursor", "openclaw"],
@@ -73,7 +73,7 @@ Add custom harnesses in config.
 
 ## State Management
 
-The skill maintains state in `.cliwatch-state.json`:
+The skill maintains state in `.clwatch-state.json`:
 - Last check timestamp
 - Known release versions
 - Acknowledged alerts

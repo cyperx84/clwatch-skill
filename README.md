@@ -1,4 +1,4 @@
-# cliwatch OpenClaw Skill
+# clwatch OpenClaw Skill
 
 Monitor changelog-impact on your local AI harness configs.
 
@@ -12,13 +12,13 @@ Monitor changelog-impact on your local AI harness configs.
 - `scripts/check-updates.sh` update/checkpoint runner
 - `scripts/scan-configs.sh` config discovery and harness detection
 - `templates/daily-report.md` report template
-- `cliwatch-config.example.json` sample config
+- `clwatch-config.example.json` sample config
 
 ## Quick start
 ```bash
-cp cliwatch-config.example.json cliwatch-config.json
-./scripts/check-updates.sh ./cliwatch-config.json
-./scripts/scan-configs.sh ./cliwatch-config.json
+cp clwatch-config.example.json clwatch-config.json
+./scripts/check-updates.sh ./clwatch-config.json
+./scripts/scan-configs.sh ./clwatch-config.json
 ```
 
 ## Cron idea
