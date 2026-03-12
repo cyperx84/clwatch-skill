@@ -1,104 +1,128 @@
 ---
 name: clwatch
-description: "Monitor AI coding tool changelogs and alert when updates affect your configs. Checks for breaking changes, deprecated features, and recommended actions across all tracked agent harnesses."
+description: "Detect coding tool updates at session start and merge changelog deltas into local reference files using a two-tier diff/refresh workflow."
 metadata:
   openclaw:
     emoji: "📡"
+    triggers:
+      - session_start
+      - manual
     requires:
-      bins: ["node", "jq"]
+      bins: [clwatch]
 ---
 
-# clwatch — Changelog Monitor Skill
+# clwatch — Changelog Intelligence Skill
 
-## Overview
+Detects new releases of tracked coding tools and merges updates into local reference files.
+Uses the `clwatch.payload.v1` schema from changelogs.info.
 
-Monitors changelogs.info release data and cross-references against your local configs to detect:
-- Breaking changes that need attention
-- Deprecated features with migration paths
-- New recommended features to enable
-- Model compatibility changes
+---
 
-## Usage
+## Tier 1 — Fast Detection (session start)
 
-The skill runs as a cron job (configurable frequency). On each run it:
-1. Checks for new releases across all tracked harnesses
-2. Scans configured paths for local config files
-3. Cross-references changes against your configs
-4. Reports findings via configured channel
+Run automatically at every session start. Must be silent when nothing changed.
 
-## Configuration
+### Steps
 
-Set these in your OpenClaw agent workspace:
+1. Run `clwatch diff --json`
+2. **Exit 0** → no changes. Stop silently.
+3. **Exit 1** → changes detected. Parse the JSON output:
 
-**clwatch-config.json:**
 ```json
 {
-  "watchHarnesses": ["claude-code", "aider", "cursor", "openclaw"],
-  "configPaths": [
-    "~/.claude/settings.json",
-    "~/projects/**/CLAUDE.md",
-    "~/projects/**/.cursorrules",
-    "~/projects/**/.aider.conf.yml"
-  ],
-  "alertLevel": "warning",
-  "checkFrequency": "daily"
+  "schema": "clwatch.diff.v1",
+  "updates": [
+    {
+      "tool": "claude-code",
+      "current": "1.0.30",
+      "latest": "1.0.35",
+      "scope": "small|medium|large",
+      "breaking": false,
+      "delta_summary": "..."
+    }
+  ]
 }
 ```
 
-## Cron Setup
+4. For each update, check `scope`:
+   - **`small`** and `breaking: false` → apply direct metadata patch (version, date, install command in reference file). No LLM merge needed.
+   - **`medium`**, **`large`**, or `breaking: true` → queue for Tier 2.
 
-Add to OpenClaw cron:
-- **Schedule:** daily at 8am local
-- **Task:** Check for harness updates affecting my configs
-- **Delivery:** announce to configured channel
+5. If any tools queued for Tier 2, proceed immediately.
 
-## Alert Levels
+---
 
-- **critical**: Breaking changes affecting your setup
-- **warning**: Deprecated features, recommended migrations
-- **info**: New features, minor updates
+## Tier 2 — Deep Refresh (only when needed)
 
-## Tracked Harnesses
+1. Fetch the full payload:
+   ```bash
+   clwatch refresh <tool> --json
+   ```
+   Fallback: `curl -sf https://changelogs.info/api/refs/<tool>.json`
 
-By default monitors:
-- Claude Code
-- Aider
-- Cursor
-- OpenClaw
-- Cline
-- Windsurf
-- Continue
+2. Locate the local reference file (see Reference File Discovery below).
 
-Add custom harnesses in config.
+3. Read the current reference file content.
 
-## State Management
+4. Apply the merge prompt template (`templates/merge-prompt.md`) with:
+   - The full delta block from the payload
+   - The current reference file content
+   - The tool metadata (version, date, breaking changes)
 
-The skill maintains state in `.clwatch-state.json`:
-- Last check timestamp
-- Known release versions
-- Acknowledged alerts
+5. **If `breaking: true`**: surface changes to the user and wait for confirmation before applying.
 
-## Manual Invocation
+6. Write the merged content back to the reference file.
 
-Run manually:
-```bash
-./scripts/check-updates.sh
-```
+7. Update local version tracking: `clwatch ack <tool> <version>`
 
-Scan configs only:
-```bash
-./scripts/scan-configs.sh
-```
+---
 
-## Output Format
+## Reference File Discovery
 
-Reports are generated using the daily-report template and can be:
-- Posted to OpenClaw channels
-- Saved to file
-- Sent via notification
+Find the agent's existing reference file for a tool:
 
-## Dependencies
+1. Search the working directory for files matching:
+   - `references/<tool-slug>-features.md` (canonical path)
+   - `references/<tool-slug>*`
+   - `*<tool-slug>*features*`
+   - `*<tool-slug>*reference*`
+2. If multiple matches, prefer the one under `references/`.
+3. If no match found, create `references/<tool-slug>-features.md` using the `templates/new-reference.md` template populated from the payload.
 
-- `jq` for JSON processing
-- `node` for changelogs.info data access
-- Standard POSIX shell utilities (grep, sed, awk)
+---
+
+## Merge Prompt Template
+
+The merge prompt is defined in `templates/merge-prompt.md`. It instructs the LLM to:
+
+1. Preserve existing structure, headings, voice, and conventions
+2. ADD items from `delta.new_features`, `delta.new_commands`, `delta.new_flags`
+3. UPDATE items that changed (compare `key_details`, descriptions)
+4. MARK deprecated items: `(deprecated since vX.Y.Z — use X instead)`
+5. MARK breaking changes with `⚠️ BREAKING`
+6. Do NOT delete existing content unless explicitly superseded
+7. Do NOT change file format or structure
+8. Only surface agent-relevant changes (skip pure bug fixes unless notable)
+
+---
+
+## Configuration
+
+See `clwatch-config.example.json`:
+
+| Field | Description |
+|---|---|
+| `tools` | Tool slugs to track |
+| `manifestUrl` | Manifest endpoint |
+| `referenceDir` | Where reference files live |
+| `tier2Threshold` | Minimum scope to trigger Tier 2 (`small`, `medium`, `large`) |
+| `notifyOnBreaking` | Always surface breaking changes to user |
+| `stateFile` | Path to version state file |
+
+---
+
+## Error Handling
+
+- If `clwatch` binary not found: log once, skip silently. Do not block the session.
+- If network fetch fails: log warning, skip. Reference files remain unchanged.
+- If reference file is read-only or missing write permissions: warn user, skip merge.

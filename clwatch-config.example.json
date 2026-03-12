@@ -1,11 +1,9 @@
 {
-  "watchHarnesses": ["claude-code", "aider", "cursor", "openclaw"],
-  "configPaths": [
-    "~/.claude/settings.json",
-    "~/projects/*/CLAUDE.md",
-    "~/projects/*/.cursorrules",
-    "~/projects/*/.aider.conf.yml"
-  ],
-  "alertLevel": "warning",
-  "checkFrequency": "daily"
+  "schema": "clwatch.config.v1",
+  "tools": ["claude-code", "codex-cli", "gemini-cli", "opencode", "openclaw"],
+  "manifestUrl": "https://changelogs.info/api/refs/manifest.json",
+  "referenceDir": "references/",
+  "tier2Threshold": "medium",
+  "notifyOnBreaking": true,
+  "stateFile": "~/.clwatch/state.json"
 }
