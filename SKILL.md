@@ -106,6 +106,76 @@ The merge prompt is defined in `templates/merge-prompt.md`. It instructs the LLM
 
 ---
 
+## Execution — Tier 2 Merge
+
+When Tier 2 is triggered for a tool, run these steps:
+
+### 1. Session start — check for updates
+
+```bash
+bash <skill-dir>/scripts/check-updates.sh
+```
+
+Exit 0 = everything current (silent). Exit 1 = updates available, proceed below.
+
+### 2. Run the merge script
+
+```bash
+bash <skill-dir>/scripts/tier2-merge.sh <tool-slug>
+```
+
+The script outputs a fully rendered merge prompt with the delta and current reference file content embedded.
+
+### 3. If breaking changes detected (`BREAKING=YES` in the output)
+
+- Extract the breaking changes section from the rendered prompt
+- Surface the breaking changes to the user **before** writing any file
+- Wait for user confirmation
+- If the user rejects, skip the merge and do not ack
+
+### 4. Produce the merged file
+
+Pass the rendered merge prompt to yourself (the agent LLM) as a user message. The prompt instructs you to output only the updated file content.
+
+### 5. Write the result
+
+Write the LLM output back to the reference file. The target path is in the HTML comment at the top of the merge script output:
+
+```
+<!-- clwatch:tier2-merge tool=<slug> ref=<path> ... -->
+```
+
+Create the `references/` directory if it doesn't exist.
+
+### 6. Acknowledge the update
+
+```bash
+clwatch ack <tool-slug> <new-version>
+```
+
+This records the version so Tier 1 won't re-trigger for the same update.
+
+---
+
+## Installation
+
+Install the skill for one or more agents:
+
+```bash
+# User-level install for all agents
+bash <skill-dir>/scripts/install-skill.sh
+
+# Project-level install for Claude Code only
+bash <skill-dir>/scripts/install-skill.sh --scope project --agent claude
+
+# User-level install for a specific agent
+bash <skill-dir>/scripts/install-skill.sh --agent gemini
+```
+
+Supported agents: `claude`, `codex`, `gemini`, `openclaw`, `all` (default).
+
+---
+
 ## Configuration
 
 See `clwatch-config.example.json`:
